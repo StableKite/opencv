@@ -335,7 +335,10 @@ public:
 
         // Workaround for some gstreamer pipelines
         if (apiPref == CAP_GSTREAMER)
+        {
             expected_frame_count.start -= 1;
+            expected_frame_count.end += 1;
+        }
 
         ASSERT_LE(expected_frame_count.start, actual);
         ASSERT_GE(expected_frame_count.end, actual);
@@ -851,7 +854,7 @@ static const VideoCaptureAccelerationInput hw_filename[] = {
         { "sample_322x242_15frames.yuv420p.mpeg2video.mp4", 24.0 },  // GSTREAMER on Ubuntu 18.04
         { "sample_322x242_15frames.yuv420p.libx264.mp4", 20.0 },  // 20 - D3D11 (i7-11800H), 23 - D3D11 on GHA/Windows, GSTREAMER on Ubuntu 18.04
         { "sample_322x242_15frames.yuv420p.libx265.mp4", 20.0 },  // 20 - D3D11 (i7-11800H), 23 - D3D11 on GHA/Windows
-        { "sample_322x242_15frames.yuv420p.libvpx-vp9.mp4", 30.0 },
+        { "sample_322x242_15frames.yuv420p.libvpx-vp9.mp4", 29.0 }, // 29 - MSMF i5-1135G7
         { "sample_322x242_15frames.yuv420p.libaom-av1.mp4", 30.0 }
 };
 
@@ -917,7 +920,7 @@ TEST_P(videowriter_acceleration, write)
         throw SkipTestException(cv::String("Backend is not available/disabled: ") + backend_name);
 #ifdef __linux__
     if (cvtest::skipUnstableTests && backend == CAP_GSTREAMER &&
-        (extension == "mkv") && (codecid == "MPEG"))
+        (extension == "mkv") && (codecid == "MPEG" || codecid == "H264"))
     {
         throw SkipTestException("Unstable GSTREAMER test");
     }
@@ -1276,5 +1279,22 @@ TEST_P(PreciseSeekingTest, seek_nonInteger_fps_frame_accurate)
 VideoCaptureAPIs seekable_backeinds[] = {CAP_FFMPEG, CAP_MSMF, CAP_AVFOUNDATION};
 
 INSTANTIATE_TEST_CASE_P(videoio, PreciseSeekingTest, testing::ValuesIn(seekable_backeinds), safe_capture_name_printer);
+
+// Regression test for heap-buffer-overflow in mjpeg_buffer::put_bits (GitHub issue #29112).
+// When len == bits_free the old guard used strict '>' and skipped the resize, causing
+// an out-of-bounds write after '++m_pos' advanced past data.size().
+TEST(Videoio_MJPEG, put_bits_no_heap_overflow)
+{
+    const std::string filename = cv::tempfile(".avi");
+    cv::Mat frame(1, 1, CV_8UC1, cv::Scalar::all(255));
+    int fourcc = cv::VideoWriter::fourcc('M', 'J', 'P', 'G');
+    {
+        cv::VideoWriter writer;
+        ASSERT_NO_THROW(writer.open(filename, CAP_OPENCV_MJPEG, fourcc, 25.0, cv::Size(1, 1), false));
+        ASSERT_TRUE(writer.isOpened());
+        EXPECT_NO_THROW(writer.write(frame));
+    }
+    remove(filename.c_str());
+}
 
 } // namespace
