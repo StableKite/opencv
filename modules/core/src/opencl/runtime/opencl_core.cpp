@@ -346,6 +346,24 @@ static const struct DynamicFnEntry* opencl_svm_fn_list[] = {
 // END OF CUSTOM FUNCTIONS HERE
 //
 
+namespace cv { namespace ocl { namespace runtime {
+
+void* getOpenCLFunctionAddress(const char* name)
+{
+#if defined(HAVE_OPENCL_STATIC)
+# if defined(CL_VERSION_3_0)
+    if (strcmp(name, "clCreateBufferWithProperties") == 0)
+        return reinterpret_cast<void*>(clCreateBufferWithProperties);
+# endif
+    CV_UNUSED(name);
+    return NULL;
+#else
+    return CV_CL_GET_PROC_ADDRESS(name);
+#endif
+}
+
+}}} // namespace cv::ocl::runtime
+
 #if !defined(HAVE_OPENCL_STATIC)
 static void* opencl_check_fn(int ID)
 {
