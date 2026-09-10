@@ -42,6 +42,24 @@ endif()
 ocv_assert(${PYTHON}_VERSION_MAJOR)
 ocv_assert(${PYTHON}_VERSION_MINOR)
 
+# Free-threaded CPython on Windows does not define Py_GIL_DISABLED
+# through Python headers. Detect it from the selected interpreter and
+# apply the definition only to the Python extension target.
+if(WIN32)
+  execute_process(
+    COMMAND "${${PYTHON}_EXECUTABLE}" -c
+            "import sysconfig; print(1 if sysconfig.get_config_var('Py_GIL_DISABLED') else 0)"
+    RESULT_VARIABLE _cvpy_gil_disabled_result
+    OUTPUT_VARIABLE _cvpy_gil_disabled
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+  )
+  if(_cvpy_gil_disabled_result EQUAL 0 AND _cvpy_gil_disabled STREQUAL "1")
+    target_compile_definitions(${the_module} PRIVATE Py_GIL_DISABLED=1)
+  endif()
+  unset(_cvpy_gil_disabled_result)
+  unset(_cvpy_gil_disabled)
+endif()
+
 if(${PYTHON}_LIMITED_API)
   # support only python3.3+
   ocv_assert(${PYTHON}_VERSION_MAJOR EQUAL 3 AND ${PYTHON}_VERSION_MINOR GREATER 2)
