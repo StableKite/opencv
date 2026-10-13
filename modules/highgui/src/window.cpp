@@ -1122,7 +1122,9 @@ const std::string cv::currentUIFramework()
 
 //========================= OpenGL fallback =========================
 
-#ifndef HAVE_OPENGL
+// Core OpenGL can be enabled when the selected Qt backend lacks Qt OpenGL.
+// window_QT.cpp omits these functions in that configuration.
+#if !defined(HAVE_OPENGL) || (defined(HAVE_QT) && !defined(HAVE_QT_OPENGL))
 
 void setOpenGLDrawCallbackImpl(const char*, CvOpenGlDrawCallback, void*)
 {
@@ -1154,7 +1156,7 @@ void* getOpenGLUserDataImpl(const char*)
     CV_Error(cv::Error::OpenGlNotSupported, "The library is compiled without OpenGL support");
 }
 
-#endif // !HAVE_OPENGL
+#endif // !HAVE_OPENGL || (HAVE_QT && !HAVE_QT_OPENGL)
 
 //========================= Qt fallback =========================
 
